@@ -3,17 +3,21 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>記帳 App</title>
+<title>記帳 App </title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" />
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height: 100vh; }
 #app { max-width: 480px; margin: 0 auto; position: relative; min-height: 100vh; }
 
+/* 診斷狀態標籤 */
 #syncStatus { position: fixed; top: 10px; right: 10px; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: bold; color: white; z-index: 9999; }
 .status-syncing { background: #3b82f6; }
 .status-success { background: #22c55e; }
 .status-error { background: #ef4444; }
+
+/* 偵錯日誌視窗 */
+#debugLog { background: #000; color: #0f0; font-family: monospace; font-size: 10px; padding: 10px; margin: 10px; border-radius: 8px; max-height: 150px; overflow-y: auto; line-height: 1.4; border: 1px solid #333; }
 
 .header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important; padding: 16px 20px 16px; }
 .header-date-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
@@ -191,7 +195,6 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 </div>
 
 <div class="content">
-<!-- RECORD TAB -->
 <div id="tab-record" class="tab active">
 <div class="type-selector">
 <button class="type-btn active-income" onclick="setRecType('income')">↑ 銷售收入</button>
@@ -233,7 +236,6 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 <button style="width:100%;background:none;border:1px solid #cbd5e1;padding:8px;border-radius:10px;font-size:12px;color:#94a3b8;margin-top:20px" onclick="loadFromCloud()">🔄 手動同步雲端資料</button>
 </div>
 
-<!-- HISTORY TAB -->
 <div id="tab-history" class="tab">
 <div class="summary-card">
 <div class="summary-net">
@@ -256,7 +258,6 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 <div class="record-list" id="recordList"></div>
 </div>
 
-<!-- PRODUCTS TAB -->
 <div id="tab-products" class="tab">
 <div class="prod-add-card">
 <div class="prod-add-title">新增品項</div>
@@ -273,7 +274,6 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 <div id="productSections"></div>
 </div>
 
-<!-- MONTHLY TAB -->
 <div id="tab-monthly" class="tab">
 <div class="month-nav">
 <button class="month-arrow" id="monthPrevBtn" onclick="shiftMonth(-1)">‹</button>
@@ -300,6 +300,9 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 </div>
 <div class="month-day-list" id="monthDayList"></div>
 </div>
+
+<!-- 偵錯日誌 -->
+<div id="debugLog">系統日誌載入中...</div>
 </div>
 </div>
 <div id="toast"></div>
@@ -307,6 +310,15 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 <script>
 // API 設定 (請確保這是您最新部署的 /exec 網址)
 const API_URL = "https://script.google.com/macros/s/AKfycby5gZUF-K2QMXq7r5RP2W3onCNp-yCR1nesACY9kjguQFMKkHQsCdLcouDUjpLM01VsMA/exec";
+
+// 偵錯日誌函式
+function log(msg) {
+  const el = document.getElementById('debugLog');
+  const time = new Date().toLocaleTimeString();
+  el.innerHTML += `<div>[${time}] ${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+  console.log(msg);
+}
 
 const CATS = {
 income: { label: '銷售收入', color: '#22c55e', bg: '#dcfce7', icon: '↑' },
@@ -356,6 +368,7 @@ el.textContent = text;
 // 雲端同步：上傳資料 (相容模式)
 async function uploadToCloud() {
 try {
+log("準備上傳資料到雲端...");
 setSyncStatus('syncing', '正在上傳...');
 const payload = { records: records, products: products };
 const formData = new URLSearchParams();
@@ -366,30 +379,35 @@ method: "POST",
 mode: "no-cors",
 body: formData
 });
-console.log("Cloud sync requested");
+log("上傳請求已發出 (no-cors 模式)");
 setSyncStatus('success', '已同步');
 } catch (e) {
-console.error("Cloud sync failed", e);
+log("[錯誤] 上傳失敗: " + e.message);
 setSyncStatus('error', '上傳失敗');
 }
 }
 
-// 雲端同步：下載資料 (JSONP 模式 - 徹底解決 CORS 問題)
+// 雲端同步：下載資料 (JSONP 模式 - 偵錯版)
 function loadFromCloud() {
-console.log("正在透過 JSONP 同步雲端資料...");
+log("1/3 開始 JSONP 同步...");
 setSyncStatus('syncing', '正在下載...');
 
 const callbackName = 'jsonp_callback_' + Math.floor(Math.random() * 1000000);
+log("建立回調函式: " + callbackName);
+
 window[callbackName] = function(cloudRecords) {
+log("2/3 成功收到雲端回傳資料！");
 if (cloudRecords && Array.isArray(cloudRecords)) {
 records = cloudRecords;
 localStorage.setItem('bk_records', JSON.stringify(records));
 updateHeader();
 renderHistory();
 if (document.getElementById('tab-monthly').classList.contains('active')) renderMonthly();
-console.log("JSONP 同步成功");
+log("3/3 介面更新完成，共 " + records.length + " 筆");
 setSyncStatus('success', '雲端同步中');
 showToast("✓ 資料已更新");
+} else {
+log("[錯誤] 回傳格式不正確: " + typeof cloudRecords);
 }
 delete window[callbackName];
 const script = document.getElementById(callbackName);
@@ -399,8 +417,10 @@ if (script) script.remove();
 const script = document.createElement('script');
 script.id = callbackName;
 script.src = `${API_URL}?callback=${callbackName}&t=${Date.now()}`;
+log("正在發送請求至: " + script.src.substring(0, 50) + "...");
+
 script.onerror = function() {
-console.error("JSONP 請求失敗");
+log("[錯誤] JSONP 請求被阻擋或失敗 (可能是網路或 API 網址錯誤)");
 setSyncStatus('error', '同步失敗');
 delete window[callbackName];
 };
@@ -420,6 +440,7 @@ const r = localStorage.getItem('bk_records');
 const p = localStorage.getItem('bk_products');
 if (r) records = JSON.parse(r);
 if (p) products = JSON.parse(p);
+log("本地快取載入完成: " + records.length + " 筆");
 } catch(e) {}
 }
 
@@ -710,12 +731,13 @@ ${products[type].map(p=>`
 }
 
 function init() {
+log("系統初始化開始...");
 loadData(); 
 initMonthStr();
 setDate(todayISO());
 renderProductGrid(); 
 updateAddBtn();
-// 啟動後立刻同步雲端資料
+log("啟動自動雲端同步...");
 loadFromCloud();
 }
 init();
