@@ -3,12 +3,18 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>記帳 App</title>
+<title>記帳 App (診斷版)</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" />
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height: 100vh; }
 #app { max-width: 480px; margin: 0 auto; position: relative; min-height: 100vh; }
+
+/* 診斷狀態標籤 */
+#syncStatus { position: fixed; top: 10px; right: 10px; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: bold; color: white; z-index: 9999; }
+.status-syncing { background: #3b82f6; }
+.status-success { background: #22c55e; }
+.status-error { background: #ef4444; }
 
 .header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important; padding: 16px 20px 16px; }
 .header-date-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
@@ -142,6 +148,7 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 </style>
 </head>
 <body>
+<div id="syncStatus" class="status-syncing">同步中...</div>
 <div id="app">
 <div class="header">
 <div class="header-date-nav">
@@ -224,6 +231,7 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 </div>
 </div>
 <button class="add-btn add-btn-income" id="addBtn" onclick="addRecord()">記帳 ↑</button>
+<button style="width:100%;background:none;border:1px solid #cbd5e1;padding:8px;border-radius:10px;font-size:12px;color:#94a3b8;margin-top:20px" onclick="loadFromCloud()">🔄 手動同步雲端資料</button>
 </div>
 
 <!-- HISTORY TAB -->
@@ -339,9 +347,16 @@ t.textContent = msg; t.style.display = 'block';
 setTimeout(() => t.style.display = 'none', 2000);
 }
 
+function setSyncStatus(status, text) {
+const el = document.getElementById('syncStatus');
+el.className = 'status-' + status;
+el.textContent = text;
+}
+
 // 雲端同步：上傳資料 (相容模式)
 async function uploadToCloud() {
 try {
+setSyncStatus('syncing', '正在上傳...');
 const payload = { records: records, products: products };
 const formData = new URLSearchParams();
 formData.append('json', JSON.stringify(payload));
@@ -352,17 +367,24 @@ mode: "no-cors",
 body: formData
 });
 console.log("Cloud sync requested");
+setSyncStatus('success', '已同步');
 } catch (e) {
 console.error("Cloud sync failed", e);
+setSyncStatus('error', '上傳失敗');
 }
 }
 
-// 雲端同步：下載資料 (防快取版)
+// 雲端同步：下載資料 (防快取版 + 診斷)
 async function loadFromCloud() {
 try {
+setSyncStatus('syncing', '正在下載...');
 console.log("正在同步雲端資料...");
-// 加 t=... 防止手機瀏覽器快取舊資料
 const response = await fetch(API_URL + "?t=" + Date.now());
+
+if (!response.ok) {
+throw new Error("伺服器回應錯誤: " + response.status);
+}
+
 const cloudRecords = await response.json();
 
 if (cloudRecords && Array.isArray(cloudRecords)) {
@@ -372,10 +394,14 @@ updateHeader();
 renderHistory();
 if (document.getElementById('tab-monthly').classList.contains('active')) renderMonthly();
 console.log("雲端同步成功");
-showToast("✓ 雲端資料已更新");
+setSyncStatus('success', '雲端同步中');
+showToast("✓ 資料已更新");
 }
 } catch (e) {
 console.error("雲端同步失敗", e);
+setSyncStatus('error', '同步失敗');
+// 手機偵錯彈窗：如果是連線問題會在這裡顯示
+// alert("同步失敗原因: " + e.message + "\n請確認 API 網址是否正確且權限已開。");
 }
 }
 
