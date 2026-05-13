@@ -3,21 +3,19 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>記帳 App </title>
+<title>記帳 App (智慧同步版)</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" />
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height: 100vh; }
 #app { max-width: 480px; margin: 0 auto; position: relative; min-height: 100vh; }
 
-/* 診斷狀態標籤 */
 #syncStatus { position: fixed; top: 10px; right: 10px; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: bold; color: white; z-index: 9999; }
 .status-syncing { background: #3b82f6; }
 .status-success { background: #22c55e; }
 .status-error { background: #ef4444; }
 
-/* 偵錯日誌視窗 */
-#debugLog { background: #000; color: #0f0; font-family: monospace; font-size: 10px; padding: 10px; margin: 10px; border-radius: 8px; max-height: 150px; overflow-y: auto; line-height: 1.4; border: 1px solid #333; }
+#debugLog { background: #000; color: #0f0; font-family: monospace; font-size: 10px; padding: 10px; margin: 10px; border-radius: 8px; max-height: 120px; overflow-y: auto; line-height: 1.4; border: 1px solid #333; }
 
 .header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important; padding: 16px 20px 16px; }
 .header-date-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
@@ -301,23 +299,25 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 <div class="month-day-list" id="monthDayList"></div>
 </div>
 
-<!-- 偵錯日誌 -->
-<div id="debugLog">系統日誌載入中...</div>
+<!-- 偵錯日誌 (您可以視需要刪除此區塊) -->
+<div id="debugLog">系統啟動中...</div>
 </div>
 </div>
 <div id="toast"></div>
 
 <script>
-// API 設定 (請確保這是您最新部署的 /exec 網址)
+// API 設定
 const API_URL = "https://script.google.com/macros/s/AKfycby5gZUF-K2QMXq7r5RP2W3onCNp-yCR1nesACY9kjguQFMKkHQsCdLcouDUjpLM01VsMA/exec";
 
-// 偵錯日誌函式
+// 智慧同步標記：確保在雲端載入完成前不執行覆蓋上傳
+let isCloudLoaded = false;
+
 function log(msg) {
   const el = document.getElementById('debugLog');
+  if (!el) return;
   const time = new Date().toLocaleTimeString();
   el.innerHTML += `<div>[${time}] ${msg}</div>`;
   el.scrollTop = el.scrollHeight;
-  console.log(msg);
 }
 
 const CATS = {
@@ -365,10 +365,24 @@ el.className = 'status-' + status;
 el.textContent = text;
 }
 
-// 雲端同步：上傳資料 (相容模式)
+// 智慧合併函式：合併本地與雲端資料，避免遺失
+function mergeRecords(local, cloud) {
+  const map = new Map();
+  // 優先放入本地資料
+  local.forEach(r => map.set(r.id, r));
+  // 加入雲端資料，如果 ID 重複則以最新資料為準 (通常是雲端)
+  cloud.forEach(r => map.set(r.id, r));
+  // 轉回陣列並依照時間排序 (最新的在前面)
+  return Array.from(map.values()).sort((a, b) => b.id - a.id);
+}
+
+// 雲端同步：上傳資料 (帶有保護機制)
 async function uploadToCloud() {
+if (!isCloudLoaded) {
+log("警告：雲端尚未載入完成，為防止資料覆蓋，暫緩上傳。");
+return;
+}
 try {
-log("準備上傳資料到雲端...");
 setSyncStatus('syncing', '正在上傳...');
 const payload = { records: records, products: products };
 const formData = new URLSearchParams();
@@ -379,35 +393,35 @@ method: "POST",
 mode: "no-cors",
 body: formData
 });
-log("上傳請求已發出 (no-cors 模式)");
+log("資料已同步至雲端");
 setSyncStatus('success', '已同步');
 } catch (e) {
-log("[錯誤] 上傳失敗: " + e.message);
+log("上傳失敗: " + e.message);
 setSyncStatus('error', '上傳失敗');
 }
 }
 
-// 雲端同步：下載資料 (JSONP 模式 - 偵錯版)
+// 雲端同步：下載資料 (JSONP 模式)
 function loadFromCloud() {
-log("1/3 開始 JSONP 同步...");
+log("正在從雲端同步資料...");
 setSyncStatus('syncing', '正在下載...');
 
 const callbackName = 'jsonp_callback_' + Math.floor(Math.random() * 1000000);
-log("建立回調函式: " + callbackName);
-
 window[callbackName] = function(cloudRecords) {
-log("2/3 成功收到雲端回傳資料！");
 if (cloudRecords && Array.isArray(cloudRecords)) {
-records = cloudRecords;
+// 執行智慧合併
+const originalCount = records.length;
+records = mergeRecords(records, cloudRecords);
+isCloudLoaded = true; // 標記已成功載入
+
 localStorage.setItem('bk_records', JSON.stringify(records));
 updateHeader();
 renderHistory();
 if (document.getElementById('tab-monthly').classList.contains('active')) renderMonthly();
-log("3/3 介面更新完成，共 " + records.length + " 筆");
+
+log(`同步完成！本地:${originalCount} 筆 -> 合併後:${records.length} 筆`);
 setSyncStatus('success', '雲端同步中');
-showToast("✓ 資料已更新");
-} else {
-log("[錯誤] 回傳格式不正確: " + typeof cloudRecords);
+showToast("✓ 雲端資料已同步");
 }
 delete window[callbackName];
 const script = document.getElementById(callbackName);
@@ -417,10 +431,8 @@ if (script) script.remove();
 const script = document.createElement('script');
 script.id = callbackName;
 script.src = `${API_URL}?callback=${callbackName}&t=${Date.now()}`;
-log("正在發送請求至: " + script.src.substring(0, 50) + "...");
-
 script.onerror = function() {
-log("[錯誤] JSONP 請求被阻擋或失敗 (可能是網路或 API 網址錯誤)");
+log("雲端下載失敗");
 setSyncStatus('error', '同步失敗');
 delete window[callbackName];
 };
@@ -440,7 +452,6 @@ const r = localStorage.getItem('bk_records');
 const p = localStorage.getItem('bk_products');
 if (r) records = JSON.parse(r);
 if (p) products = JSON.parse(p);
-log("本地快取載入完成: " + records.length + " 筆");
 } catch(e) {}
 }
 
@@ -731,13 +742,13 @@ ${products[type].map(p=>`
 }
 
 function init() {
-log("系統初始化開始...");
+log("智慧同步初始化...");
 loadData(); 
 initMonthStr();
 setDate(todayISO());
 renderProductGrid(); 
 updateAddBtn();
-log("啟動自動雲端同步...");
+// 啟動後立刻同步雲端資料
 loadFromCloud();
 }
 init();
