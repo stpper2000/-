@@ -422,21 +422,34 @@ log("正在從雲端下載資料...");
 setSyncStatus('syncing', '正在下載...');
 
 const callbackName = 'jsonp_callback_' + Math.floor(Math.random() * 1000000);
-window[callbackName] = function(cloudRecords) {
-if (cloudRecords && Array.isArray(cloudRecords)) {
-records = mergeRecords(records, cloudRecords);
-isCloudLoaded = true;
+window[callbackName] = function(cloudData) {
+if (cloudData) {
+// 同步 records
+if (cloudData.records && Array.isArray(cloudData.records)) {
+records = mergeRecords(records, cloudData.records);
 
 const dates = [...new Set(records.map(r => r.date))];
 log(`同步成功！總筆數: ${records.length}，日期包含: ${dates.join(', ')}`);
 
 localStorage.setItem('bk_records', JSON.stringify(records));
 
+// 同步 products
+if (cloudData.products) {
+products = cloudData.products;
+localStorage.setItem('bk_products', JSON.stringify(products));
+}
+
+isCloudLoaded = true;
+
+renderProductGrid();
+renderProductSections();
 updateHeader();
 renderHistory();
 renderMonthly();
 
-setSyncStatus('success', '雲端同步中');
+log(`同步成功！帳目:${records.length}筆`);
+
+setSyncStatus('success', '雲端同步中');;
 showToast("✓ 雲端資料已同步");
 }
 delete window[callbackName];
