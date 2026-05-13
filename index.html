@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8" />
@@ -11,7 +10,6 @@
 body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height: 100vh; }
 #app { max-width: 480px; margin: 0 auto; position: relative; min-height: 100vh; }
 
-```
 .header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important; padding: 16px 20px 16px; }
 .header-date-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .hdr-arrow { background: rgba(255,255,255,0.1); border: none; border-radius: 8px; width: 32px; height: 32px; font-size: 18px; cursor: pointer; color: #fff; font-family: inherit; }
@@ -151,8 +149,6 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 .export-btn-red { background: #fff; color: #ef4444; border: 1.5px solid #ef4444; }
 
 #toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 10px 24px; border-radius: 100px; font-weight: 700; font-size: 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); z-index: 999; white-space: nowrap; display: none; }
-```
-
 </style>
 </head>
 <body>
@@ -240,7 +236,6 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 <button class="add-btn add-btn-income" id="addBtn" onclick="addRecord()">記帳 ↑</button>
 </div>
 
-```
 <!-- HISTORY TAB -->
 <div id="tab-history" class="tab">
 <div class="summary-card">
@@ -308,8 +303,6 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 </div>
 <div class="month-day-list" id="monthDayList"></div>
 </div>
-```
-
 </div>
 </div>
 <div id="toast"></div>
@@ -331,19 +324,16 @@ let recType = 'income', recMode = 'quick', selectedProduct = null;
 let sharedDateStr = '', newProdType = 'income', qty = 1, customPrice = '';
 let monthStr = '';
 
-// ── Helpers ──────────────────────────────────────────────────────────────
 function todayISO() {
 const d = new Date();
 return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
 }
 function pad(n) { return String(n).padStart(2,'0'); }
 
-// Store dates as YYYY-MM-DD internally, display as YYYY/M/D
 function isoToDisplay(iso) {
 const [y,m,d] = iso.split('-');
 return `${y}/${parseInt(m)}/${parseInt(d)}`;
 }
-// Get YYYY-MM from a display date "YYYY/M/D"
 function displayToYearMonth(display) {
 const [y,m] = display.split('/');
 return y + '-' + pad(parseInt(m));
@@ -356,7 +346,6 @@ t.textContent = msg; t.style.display = 'block';
 setTimeout(() => t.style.display = 'none', 2000);
 }
 
-// ── LocalStorage ──────────────────────────────────────────────────────────
 function saveData() {
 try {
 localStorage.setItem('bk_records', JSON.stringify(records));
@@ -372,39 +361,6 @@ if (p) products = JSON.parse(p);
 } catch(e) {}
 }
 
-// ── Backup / Restore ──────────────────────────────────────────────────────
-function backupData() {
-const data = { version: 1, records, products, exportedAt: new Date().toISOString() };
-const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-const url = URL.createObjectURL(blob);
-const a = document.createElement('a');
-a.href = url;
-a.download = `記帳備份_${todayISO()}.json`;
-a.click();
-URL.revokeObjectURL(url);
-showToast('✓ 備份下載完成');
-}
-function restoreData(input) {
-const file = input.files[0];
-if (!file) return;
-const reader = new FileReader();
-reader.onload = e => {
-try {
-const data = JSON.parse(e.target.result);
-if (!data.records || !data.products) return showToast('❌ 備份檔格式錯誤');
-if (!confirm(`確定要還原？這將覆蓋現有的 ${records.length} 筆資料。`)) return;
-records = data.records;
-products = data.products;
-saveData();
-updateHeader(); renderHistory(); renderExport(); renderProductGrid(); renderProductSections();
-showToast(`✓ 已還原 ${records.length} 筆資料`);
-} catch(e) { showToast('❌ 檔案讀取失敗'); }
-};
-reader.readAsText(file);
-input.value = '';
-}
-
-// ── Date ──────────────────────────────────────────────────────────────────
 function setDate(iso) {
 sharedDateStr = iso;
 const isToday = iso === todayISO();
@@ -420,7 +376,6 @@ d.setDate(d.getDate() + delta);
 setDate(d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()));
 }
 
-// ── Tab ───────────────────────────────────────────────────────────────────
 function switchTab(name) {
 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
 document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -429,11 +384,9 @@ const idx = {record:0, history:1, products:2, monthly:3}[name];
 document.querySelectorAll('.nav-btn')[idx].classList.add('active');
 if (name === 'history') renderHistory();
 if (name === 'monthly') renderMonthly();
-
 if (name === 'products') renderProductSections();
 }
 
-// ── Record Type / Mode ────────────────────────────────────────────────────
 function setRecType(type) {
 recType = type; selectedProduct = null; customPrice = ''; qty = 1;
 document.querySelectorAll('.type-btn').forEach(b => b.className = 'type-btn');
@@ -449,7 +402,6 @@ document.getElementById('manual-mode').style.display = m==='manual'?'block':'non
 hidePriceCard();
 }
 
-// ── Products ──────────────────────────────────────────────────────────────
 function renderProductGrid() {
 const grid = document.getElementById('productGrid');
 if (!grid) return;
@@ -514,7 +466,6 @@ updateSubtotal();
 function syncQty(val) { qty=Math.max(1,parseInt(val)||1); updateSubtotal(); }
 function updateSubtotal() { const el=document.getElementById('subtotalVal'); if(el) el.textContent=formatMoney((parseFloat(customPrice)||0)*qty); }
 
-// ── Add Record ────────────────────────────────────────────────────────────
 function addRecord() {
 let name, price, note;
 if (recMode==='manual') {
@@ -530,7 +481,6 @@ price = parseFloat(customPrice);
 if (isNaN(price)||price<=0) return showToast('請輸入金額');
 note = (document.getElementById('quickNote')||{value:''}).value||'';
 }
-// Store date as display format YYYY/M/D
 records.unshift({ id:Date.now(), type:recType, name, qty, price, total:price*qty, note, date:isoToDisplay(sharedDateStr) });
 selectedProduct=null; customPrice=''; qty=1;
 if (recMode==='manual') {
@@ -540,7 +490,7 @@ document.getElementById('manualQty').value=1;
 renderProductGrid(); hidePriceCard();
 updateHeader(); renderHistory();
 if (document.getElementById('tab-monthly').classList.contains('active')) renderMonthly();
-saveData(); autoPush();
+saveData();
 showToast('✓ 已記帳');
 }
 function updateAddBtn() {
@@ -549,7 +499,6 @@ btn.className = `add-btn add-btn-${recType}`;
 btn.textContent = `記帳 ${CATS[recType].icon}`;
 }
 
-// ── History ───────────────────────────────────────────────────────────────
 function renderHistory() {
 const label = isoToDisplay(sharedDateStr);
 const filtered = records.filter(r => r.date === label);
@@ -579,9 +528,8 @@ return `<div class="record-item">
 </div>`;
 }).join('');
 }
-function deleteRecord(id) { records=records.filter(r=>r.id!==id); renderHistory(); updateHeader(); saveData(); autoPush(); }
+function deleteRecord(id) { records=records.filter(r=>r.id!==id); renderHistory(); updateHeader(); saveData(); }
 
-// ── Header ────────────────────────────────────────────────────────────────
 function updateHeader() {
 const label = isoToDisplay(sharedDateStr);
 const recs = records.filter(r=>r.date===label);
@@ -589,19 +537,18 @@ const income = recs.filter(r=>r.type==='income').reduce((a,b)=>a+b.total,0);
 const expense = recs.filter(r=>r.type==='expense').reduce((a,b)=>a+b.total,0);
 const daily = recs.filter(r=>r.type==='daily').reduce((a,b)=>a+b.total,0);
 const net = income-expense-daily;
-var hn = document.getElementById('headerNet');
-var h2 = document.getElementById('hdrNet2');
+const hn = document.getElementById('headerNet');
+const h2 = document.getElementById('hdrNet2');
 if(hn) { hn.textContent = formatMoney(net); hn.style.color = net>=0?'#4ade80':'#f87171'; }
-var hi = document.getElementById('hdrIncome');
-var he = document.getElementById('hdrExpense');
-var hd = document.getElementById('hdrDaily');
+const hi = document.getElementById('hdrIncome');
+const he = document.getElementById('hdrExpense');
+const hd = document.getElementById('hdrDaily');
 if(hi) hi.textContent = formatMoney(income);
 if(he) he.textContent = formatMoney(expense);
 if(hd) hd.textContent = formatMoney(daily);
 if(h2) { h2.textContent = formatMoney(net); h2.style.color = net>=0?'#4ade80':'#f87171'; }
 }
 
-// ── Monthly ───────────────────────────────────────────────────────────────
 function initMonthStr() {
 const d = new Date();
 monthStr = d.getFullYear() + '-' + pad(d.getMonth()+1);
@@ -618,9 +565,7 @@ document.getElementById('monthLabel').textContent = `${y} 年 ${m} 月`;
 const nowStr = new Date().getFullYear() + '-' + pad(new Date().getMonth()+1);
 document.getElementById('monthNextBtn').className = monthStr >= nowStr ? 'month-arrow disabled' : 'month-arrow';
 
-// ★ Fix: match YYYY-MM against display dates "YYYY/M/D" correctly
 const monthRecs = records.filter(r => displayToYearMonth(r.date) === monthStr);
-
 const totalIncome = monthRecs.filter(r=>r.type==='income').reduce((a,b)=>a+b.total,0);
 const totalExpense = monthRecs.filter(r=>r.type==='expense').reduce((a,b)=>a+b.total,0);
 const totalDaily = monthRecs.filter(r=>r.type==='daily').reduce((a,b)=>a+b.total,0);
@@ -670,7 +615,6 @@ setDate(y + '-' + pad(parseInt(m)) + '-' + pad(parseInt(d)));
 switchTab('history');
 }
 
-// ── Product Management ────────────────────────────────────────────────────
 function setProdType(type) {
 newProdType = type;
 document.querySelectorAll('.prod-type-btn').forEach(b => b.className='prod-type-btn');
@@ -703,92 +647,12 @@ ${products[type].map(p=>`
 </div>`).join('');
 }
 
-// ── Export ────────────────────────────────────────────────────────────────
-function renderExport() {
-const earliest = records.length ? [...records].sort((a,b)=>{
-const ms=s=>{const[y,m,d]=s.split('/');return new Date(y,m-1,d).getTime();};
-return ms(a.date)-ms(b.date);
-})[0].date : null;
-document.getElementById('exportStat').textContent = records.length
-? `共 ${records.length} 筆記錄，最早從 ${earliest} 開始`
-: '目前沒有任何記錄';
-const now = new Date();
-const thisMonth = now.getFullYear() + '-' + pad(now.getMonth()+1);
-const fe = document.getElementById('exportFrom'), te = document.getElementById('exportTo');
-if (!fe.value) fe.value = thisMonth;
-if (!te.value) te.value = thisMonth;
-}
-function exportCSV() {
-const from = document.getElementById('exportFrom').value;
-const to = document.getElementById('exportTo').value;
-if (!from||!to) return showToast('請選擇月份範圍');
-if (from>to) return showToast('開始月份不能晚於結束月份');
-const filtered = records.filter(r => {
-const ym = displayToYearMonth(r.date);
-return ym>=from && ym<=to;
-}).sort((a,b)=>{const ms=s=>{const[y,m,d]=s.split('/');return new Date(y,m-1,d).getTime();};return ms(a.date)-ms(b.date);});
-if (!filtered.length) return showToast('該期間沒有資料');
-const typeLabel = {income:'銷售收入',expense:'進貨支出',daily:'日常費用'};
-const rows = [
-['日期','類型','品名','數量','單價','小計','備註'],
-...filtered.map(r=>[r.date,typeLabel[r.type],r.name,r.qty,r.price,r.total,r.note||''])
-];
-rows.push([]); rows.push(['── 月份統計 ──']);
-const monthMap = {};
-filtered.forEach(r=>{
-const k = displayToYearMonth(r.date);
-if (!monthMap[k]) monthMap[k]={income:0,expense:0,daily:0};
-monthMap[k][r.type]+=r.total;
-});
-rows.push(['月份','銷售收入','進貨支出','日常費用','盈餘']);
-Object.entries(monthMap).sort().forEach(([k,v])=>{
-const [y,m]=k.split('-');
-rows.push([`${y}/${parseInt(m)}月`,v.income,v.expense,v.daily,v.income-v.expense-v.daily]);
-});
-const csv = '\uFEFF' + rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
-const a = document.createElement('a');
-a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
-a.download = `記帳_${from}_${to}.csv`;
-a.click();
-showToast('✓ 下載完成');
-}
-function clearAllData() {
-if (!confirm(`確定要清除所有 ${records.length} 筆帳目資料嗎？建議先備份。`)) return;
-records = []; saveData(); updateHeader(); renderExport();
-showToast('已清除全部資料');
-}
-
-
-
-
-
-// ── Google Drive 同步（複製/貼上方式，不需跨域）────────────────────────────
-
-function autoPush() {
-clearTimeout(window._t);
-window._t = setTimeout(cloudPush, 2000);
-}
-
-function showDriveMsg(msg, ok) {
-const el = document.getElementById('driveMsg');
-if (!el) return;
-el.textContent = msg;
-el.style.display = 'block';
-el.style.background = ok ? '#dcfce7' : '#fee2e2';
-el.style.color = ok ? '#16a34a' : '#dc2626';
-setTimeout(() => { if(el) el.style.display = 'none'; }, 4000);
-}
-
-
-// ── Init ──────────────────────────────────────────────────────────────────
 function init() {
 loadData(); initMonthStr();
 setDate(todayISO());
 renderProductGrid(); updateAddBtn();
-setTimeout(cloudPull, 1000);
 }
 init();
 </script>
-
 </body>
 </html>
