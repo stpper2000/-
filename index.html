@@ -15,19 +15,30 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 .status-success { background: #22c55e; }
 .status-error { background: #ef4444; }
 
+/* 偵錯視窗樣式優化 */
 #debugLog { 
   display: none; 
-  background: #000; 
+  background: rgba(0, 0, 0, 0.9); 
   color: #0f0; 
   font-family: monospace; 
   font-size: 10px; 
-  padding: 10px; 
+  padding: 12px; 
   margin: 10px; 
-  border-radius: 8px; 
-  max-height: 150px; 
+  border-radius: 12px; 
+  max-height: 200px; 
   overflow-y: auto; 
   line-height: 1.4; 
   border: 1px solid #333; 
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  cursor: pointer; /* 點擊可關閉的提示 */
+}
+#debugLog::before {
+  content: "點擊此處關閉偵錯視窗";
+  display: block;
+  color: #555;
+  font-size: 8px;
+  text-align: right;
+  margin-bottom: 4px;
 }
 
 .header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important; padding: 16px 20px 16px; }
@@ -40,7 +51,7 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 .hdr-date-input::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
 .hdr-today-badge { display: inline-block; background: rgba(255,255,255,0.15); color: #94a3b8; font-size: 10px; border-radius: 4px; padding: 2px 8px; margin-top: 4px; cursor: pointer; border: none; font-family: inherit; }
 .hdr-net-row { text-align: center; margin-bottom: 12px; }
-.hdr-net-label { color: #94a3b8; font-size: 11px; margin-bottom: 2px; cursor: pointer; }
+.hdr-net-label { color: #94a3b8; font-size: 11px; margin-bottom: 2px; cursor: pointer; border-bottom: 1px dashed #444; display: inline-block; }
 .hdr-net-val { font-size: 30px; font-weight: 900; }
 .summary-bar { display: flex; gap: 6px; }
 .summary-item { flex: 1; background: rgba(255,255,255,0.07); border-radius: 10px; padding: 7px 8px; }
@@ -178,7 +189,8 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 <button class="hdr-arrow disabled" id="hdrNextBtn" onclick="shiftDate(1)">›</button>
 </div>
 <div class="hdr-net-row">
-<div class="hdr-net-label" onclick="document.getElementById('debugLog').style.display='block'">當日盈餘</div>
+<!-- 修改點：點擊觸發切換顯示/隱藏 -->
+<div class="hdr-net-label" onclick="toggleDebugLog()">當日盈餘</div>
 <div class="hdr-net-val" id="headerNet"></div>
 </div>
 <div class="summary-bar">
@@ -208,7 +220,8 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 <button class="nav-btn" onclick="switchTab('monthly')">月報</button>
 </div>
 
-<div id="debugLog"></div>
+<!-- 修改點：增加點擊自身關閉功能 -->
+<div id="debugLog" onclick="toggleDebugLog()"></div>
 
 <div class="content">
 <div id="tab-record" class="tab active">
@@ -319,11 +332,13 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 </div>
 </div>
 
+<div id="toast"></div>
+
 <script>
 // ============================================
 // 全局變數
 // ============================================
-const API_URL = 'https://script.google.com/macros/s/AKfycby5gZUF-K2QMXq7r5RP2W3onCNp-yCR1nesACY9kjguQFMKkHQsCdLcouDUjpLM01VsMA/exec'; // 請替換為您的 Google Apps Script 部署 URL
+const API_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL'; // 請務必替換為您的 GAS 網址
 let records = [];
 let products = {
   income: [],
@@ -338,6 +353,7 @@ let customPrice = '';
 let qty = 1;
 let newProdType = 'income';
 let isCloudLoaded = false;
+let monthStr;
 
 const CATS = {
   income: { label: '收入', icon: '↑', color: '#22c55e', bg: '#dcfce7' },
@@ -355,6 +371,17 @@ function log(msg) {
     debugLog.scrollTop = debugLog.scrollHeight;
   }
   console.log(msg);
+}
+
+// 修改點：切換偵錯視窗顯示/隱藏
+function toggleDebugLog() {
+  const el = document.getElementById('debugLog');
+  if (el.style.display === 'block') {
+    el.style.display = 'none';
+  } else {
+    el.style.display = 'block';
+    el.scrollTop = el.scrollHeight;
+  }
 }
 
 function showToast(msg) {
@@ -420,7 +447,6 @@ function mergeRecords(local, cloud) {
 // ☁️ 雲端同步
 // ============================================
 
-// 【修正】加入 force 參數，品項新增/刪除時強制上傳
 async function uploadToCloud(force = false) {
   if (!isCloudLoaded && !force) {
     log('⚠️ 雲端未完全載入，跳過上傳');
@@ -435,11 +461,9 @@ async function uploadToCloud(force = false) {
     const formData = new URLSearchParams();
     formData.append('json', JSON.stringify(payload));
     
-    // 為了確保品項同步，這裡需要確保 API_URL 是正確的
-    // 並且 Google Apps Script 的 doPost 能夠正確處理 products 數據
     await fetch(API_URL, { 
       method: "POST", 
-      mode: "no-cors", // 跨域請求，通常用於 JSONP 或簡單 POST
+      mode: "no-cors", 
       body: formData 
     });
     
@@ -470,9 +494,6 @@ function loadFromCloud() {
       }
       
       if (cloudData && cloudData.products) {
-        log("📦 收到品項數據: " + JSON.stringify(cloudData.products).substring(0, 100));
-        
-        // 【修正】這裡直接替換本地 products，確保與雲端一致
         products = {
           income: cloudData.products.income || [],
           expense: cloudData.products.expense || [],
@@ -481,10 +502,6 @@ function loadFromCloud() {
         
         const prodCount = Object.values(products).flat().length;
         log(`✓ 品項同步成功！總數: ${prodCount}`);
-        log(`  - 銷售收入: ${products.income.length}`);
-        log(`  - 進貨支出: ${products.expense.length}`);
-        log(`  - 日常費用: ${products.daily.length}`);
-        
         localStorage.setItem('bk_products', JSON.stringify(products));
       } else {
         log("⚠️ 無品項數據");
@@ -928,7 +945,7 @@ function goToDay(dateLabel) {
 }
 
 // ============================================
-// 📦 品項管理【修正重點】
+// 📦 品項管理
 // ============================================
 
 function setProdType(type) {
@@ -937,7 +954,6 @@ function setProdType(type) {
   document.querySelectorAll('.prod-type-btn')[{income:0,expense:1,daily:2}[type]].className=`prod-type-btn active-${type}`;
 }
 
-// 【修正】新增品項：直接儲存到 localStorage 並強制上傳雲端
 function addProduct() {
   const name = document.getElementById('newProdName').value.trim();
   if (!name) return showToast('請填品名');
@@ -951,29 +967,20 @@ function addProduct() {
   renderProductSections(); 
   renderProductGrid();
   
-  // 先儲存到 localStorage
   localStorage.setItem('bk_products', JSON.stringify(products));
-  localStorage.setItem('bk_records', JSON.stringify(records));
-  
-  // 強制上傳雲端（不受 isCloudLoaded 限制）
   uploadToCloud(true);
   
   log('✓ 新增品項：' + name);
   showToast('✓ 已新增品項');
 }
 
-// 【修正】刪除品項：直接儲存到 localStorage 並強制上傳雲端
 function deleteProduct(type, id) {
   const prodName = products[type].find(p => p.id === id)?.name || '未知品項';
   products[type] = products[type].filter(p => p.id !== id);
   renderProductSections(); 
   renderProductGrid();
   
-  // 先儲存到 localStorage
   localStorage.setItem('bk_products', JSON.stringify(products));
-  localStorage.setItem('bk_records', JSON.stringify(records));
-  
-  // 強制上傳雲端（不受 isCloudLoaded 限制）
   uploadToCloud(true);
   
   log('✓ 刪除品項：' + prodName);
