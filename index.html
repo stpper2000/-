@@ -319,7 +319,7 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 
 <script>
 // ============================================
-// 📌 API 設定
+// 📌 API 設定（請換成你自己的 URL）
 // ============================================
 const API_URL = "https://script.google.com/macros/s/AKfycby5gZUF-K2QMXq7r5RP2W3onCNp-yCR1nesACY9kjguQFMKkHQsCdLcouDUjpLM01VsMA/exec";
 
@@ -415,11 +415,12 @@ function mergeRecords(local, cloud) {
 }
 
 // ============================================
-// ��� 雲端同步函數 - 強制版本
+// ☁️ 雲端同步
 // ============================================
 
-async function uploadToCloud() {
-  if (!isCloudLoaded) {
+// 【修正】加入 force 參數，品項新增/刪除時強制上傳
+async function uploadToCloud(force = false) {
+  if (!isCloudLoaded && !force) {
     log('⚠️ 雲端未完全載入，跳過上傳');
     return;
   }
@@ -446,7 +447,6 @@ async function uploadToCloud() {
   }
 }
 
-// 🔄 **強制同步完整版本**
 function loadFromCloud() {
   log("🔄 正在從雲端下載完整資料...");
   setSyncStatus('syncing', '正在下載...');
@@ -457,21 +457,17 @@ function loadFromCloud() {
     try {
       log("📥 收到雲端數據：" + JSON.stringify(cloudData).substring(0, 100));
       
-      // 處理 records
       if (cloudData && cloudData.records && Array.isArray(cloudData.records)) {
         records = mergeRecords(records, cloudData.records);
-        const dates = [...new Set(records.map(r => r.date))];
         log(`✓ 帳目同步成功！總筆數: ${records.length}`);
         localStorage.setItem('bk_records', JSON.stringify(records));
       } else {
         log("⚠️ 無帳目數據");
       }
       
-      // 處理 products 🆕 - 強制覆蓋
       if (cloudData && cloudData.products) {
         log("📦 收到品項數據: " + JSON.stringify(cloudData.products).substring(0, 100));
         
-        // 完全替換 products
         products = {
           income: cloudData.products.income || [],
           expense: cloudData.products.expense || [],
@@ -486,32 +482,24 @@ function loadFromCloud() {
         
         localStorage.setItem('bk_products', JSON.stringify(products));
       } else {
-        log("⚠️ 無品項數據 - cloudData.products 不存在");
-        log("cloudData 內容: " + JSON.stringify(cloudData));
+        log("⚠️ 無品項數據");
       }
     } catch (e) {
       log('✗ 處理資料失敗：' + e.toString());
-      log('收到的數據: ' + JSON.stringify(cloudData));
     }
     
-    // 清理回調
     delete window[callbackName];
     const script = document.getElementById(callbackName);
     if (script) script.remove();
     
-    // 同步完成後強制重新渲染 🔥
     log("🔄 正在重新渲染...");
-    
-    // 延遲100ms確保數據已更新
     setTimeout(() => {
       renderProductGrid(); 
       renderProductSections();
       updateHeader();
       renderHistory();
       renderMonthly();
-      
       log("✓ 渲染完成");
-      log("當前品項: " + Object.values(products).flat().map(p => p.name).join(", "));
     }, 100);
     
     setSyncStatus('success', '雲端已同步');
@@ -935,7 +923,7 @@ function goToDay(dateLabel) {
 }
 
 // ============================================
-// 📦 品項管理
+// 📦 品項管理【修正重點】
 // ============================================
 
 function setProdType(type) {
@@ -944,30 +932,47 @@ function setProdType(type) {
   document.querySelectorAll('.prod-type-btn')[{income:0,expense:1,daily:2}[type]].className=`prod-type-btn active-${type}`;
 }
 
+// 【修正】新增品項：直接儲存到 localStorage 並強制上傳雲端
 function addProduct() {
   const name = document.getElementById('newProdName').value.trim();
   if (!name) return showToast('請填品名');
   
   products[newProdType].push({ 
-    id:Date.now(), 
+    id: Date.now(), 
     name 
   });
   
-  document.getElementById('newProdName').value='';
+  document.getElementById('newProdName').value = '';
   renderProductSections(); 
-  renderProductGrid(); 
-  saveData();
+  renderProductGrid();
+  
+  // 先儲存到 localStorage
+  localStorage.setItem('bk_products', JSON.stringify(products));
+  localStorage.setItem('bk_records', JSON.stringify(records));
+  
+  // 強制上傳雲端（不受 isCloudLoaded 限制）
+  uploadToCloud(true);
+  
   log('✓ 新增品項：' + name);
   showToast('✓ 已新增品項');
 }
 
+// 【修正】刪除品項：直接儲存到 localStorage 並強制上傳雲端
 function deleteProduct(type, id) {
   const prodName = products[type].find(p => p.id === id)?.name || '未知品項';
-  products[type] = products[type].filter(p=>p.id!==id);
+  products[type] = products[type].filter(p => p.id !== id);
   renderProductSections(); 
-  renderProductGrid(); 
-  saveData();
+  renderProductGrid();
+  
+  // 先儲存到 localStorage
+  localStorage.setItem('bk_products', JSON.stringify(products));
+  localStorage.setItem('bk_records', JSON.stringify(records));
+  
+  // 強制上傳雲端（不受 isCloudLoaded 限制）
+  uploadToCloud(true);
+  
   log('✓ 刪除品項：' + prodName);
+  showToast('✓ 已刪除品項');
 }
 
 function renderProductSections() {
@@ -986,7 +991,7 @@ ${products[type].map(p=>`
 }
 
 // ============================================
-// 🚀 初始化 - 強制版本
+// 🚀 初始化
 // ============================================
 
 function init() {
@@ -997,7 +1002,6 @@ function init() {
   renderProductGrid();
   updateAddBtn();
   
-  // ⏰ 等待 500ms 後再同步 - 確保 localStorage 已完全初始化
   setTimeout(() => {
     log("開始從雲端載入...");
     loadFromCloud();
