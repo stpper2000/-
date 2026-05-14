@@ -156,6 +156,9 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 .month-day-net { font-weight: 900; font-size: 15px; }
 .month-day-bar { display: flex; gap: 6px; flex-wrap: wrap; }
 .month-day-bar-item { font-size: 11px; color: #94a3b8; }
+.month-day-bar-item.income { color: #22c55e; }
+.month-day-bar-item.expense { color: #ef4444; }
+.month-day-bar-item.daily { color: #f59e0b; }
 .month-empty { text-align: center; color: #94a3b8; padding: 40px; }
 
 #toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 10px 24px; border-radius: 100px; font-weight: 700; font-size: 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); z-index: 999; white-space: nowrap; display: none; }
@@ -202,68 +205,72 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 <button class="nav-btn active" onclick="switchTab('record')">⚡ 記帳</button>
 <button class="nav-btn" onclick="switchTab('history')">📋 帳目</button>
 <button class="nav-btn" onclick="switchTab('products')">📦 品項</button>
-<button class="nav-btn" onclick="switchTab('monthly')">📊 月報</button>
+<button class="nav-btn" onclick="switchTab('monthly')">月報</button>
 </div>
+
+<div id="debugLog"></div>
 
 <div class="content">
 <div id="tab-record" class="tab active">
 <div class="type-selector">
-<button class="type-btn active-income" onclick="setRecType('income')">↑ 銷售收入</button>
-<button class="type-btn" onclick="setRecType('expense')">↓ 進貨支出</button>
-<button class="type-btn" onclick="setRecType('daily')">◆ 日常費用</button>
+<button class="type-btn active-income" onclick="setRecType('income')">收入</button>
+<button class="type-btn" onclick="setRecType('expense')">進貨</button>
+<button class="type-btn" onclick="setRecType('daily')">費用</button>
 </div>
+
 <div class="mode-toggle">
-<button class="mode-btn active" onclick="setMode('quick')">⚡ 常用品項</button>
-<button class="mode-btn" onclick="setMode('manual')">✏️ 手動輸入</button>
+<button class="mode-btn active" onclick="setMode('quick')">快速記帳</button>
+<button class="mode-btn" onclick="setMode('manual')">手動輸入</button>
 </div>
+
 <div id="quick-mode">
 <div class="product-grid" id="productGrid"></div>
 <div id="priceCard" style="display:none"></div>
 </div>
+
 <div id="manual-mode" style="display:none">
 <div class="manual-card">
 <div style="margin-bottom:10px">
 <div class="field-label">品名</div>
-<input class="text-input" id="manualName" placeholder="輸入品名" />
+<input type="text" class="text-input" id="manualName" placeholder="輸入品名" />
 </div>
 <div class="row-2">
 <div style="flex:1">
-<div class="field-label">單價 (NT$)</div>
-<input class="text-input" id="manualPrice" type="number" placeholder="0" inputmode="numeric" />
+<div class="field-label">金額 (NT$)</div>
+<input type="number" class="text-input" id="manualPrice" placeholder="輸入金額" inputmode="numeric" />
 </div>
-<div style="flex:1">
+<div style="width:100px">
 <div class="field-label">數量</div>
-<div style="display:flex;align-items:center;gap:4px">
-<button class="qty-btn" onclick="changeQty(-1)">−</button>
-<input class="qty-input" id="manualQty" type="number" value="1" inputmode="numeric" onchange="syncQty(this.value)" style="width:50px" />
-<button class="qty-btn" onclick="changeQty(1)">+</button>
+<input type="number" class="text-input" id="manualQty" value="1" inputmode="numeric" />
+</div>
+</div>
+<div>
+<div class="field-label">備註</div>
+<input type="text" class="text-input" id="manualNote" placeholder="選填" />
 </div>
 </div>
 </div>
-<input class="note-input" id="manualNote" placeholder="備註（選填）" />
-</div>
-</div>
+
 <button class="add-btn add-btn-income" id="addBtn" onclick="addRecord()">記帳 ↑</button>
-<button style="width:100%;background:none;border:1px solid #cbd5e1;padding:8px;border-radius:10px;font-size:12px;color:#94a3b8;margin-top:20px" onclick="loadFromCloud()">🔄 手動同步雲端資料</button>
 </div>
 
 <div id="tab-history" class="tab">
 <div class="summary-card">
 <div class="summary-net">
-<div class="summary-net-label">當日淨利</div>
+<div class="summary-net-label">當日盈餘</div>
 <div class="summary-net-val" id="histNet"></div>
 </div>
 <div>
-<div class="summary-sub-label">銷售收入</div>
-<div class="summary-sub-val" style="color:#16a34a" id="histIncome"></div>
+<div class="summary-sub-label" style="color:#4ade80">↑ 收入</div>
+<div class="summary-sub-val" id="histIncome"></div>
 </div>
 <div>
-<div class="summary-sub-label">進貨支出</div>
-<div class="summary-sub-val" style="color:#ef4444" id="histExpense"></div>
+<div class="summary-sub-label" style="color:#f87171">↓ 進貨</div>
+<div class="summary-sub-val" id="histExpense"></div>
 </div>
 <div class="summary-daily">
-<div class="summary-sub-label">日常費用</div>
-<div class="summary-sub-val" style="color:#f59e0b" id="histDaily"></div>
+<div class="summary-sub-label" style="color:#fbbf24">◆ 費用</div>
+<div class="summary-sub-val" id="histDaily"></div>
 </div>
 </div>
 <div class="record-list" id="recordList"></div>
@@ -273,131 +280,126 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 <div class="prod-add-card">
 <div class="prod-add-title">新增品項</div>
 <div class="prod-type-row">
-<button class="prod-type-btn active-income" onclick="setProdType('income')">銷售收入</button>
-<button class="prod-type-btn" onclick="setProdType('expense')">進貨支出</button>
-<button class="prod-type-btn" onclick="setProdType('daily')">日常費用</button>
+<button class="prod-type-btn active-income" onclick="setProdType('income')">收入</button>
+<button class="prod-type-btn" onclick="setProdType('expense')">進貨</button>
+<button class="prod-type-btn" onclick="setProdType('daily')">費用</button>
 </div>
-<div style="display:flex;gap:8px;margin-bottom:8px">
-<input class="text-input" id="newProdName" placeholder="品名" style="flex:1" />
-</div>
-<button class="prod-add-btn" onclick="addProduct()">+ 新增</button>
+<input type="text" class="text-input" id="newProdName" placeholder="輸入品項名稱" style="margin-bottom:10px" />
+<button class="prod-add-btn" onclick="addProduct()">新增</button>
 </div>
 <div id="productSections"></div>
 </div>
 
 <div id="tab-monthly" class="tab">
 <div class="month-nav">
-<button class="month-arrow" id="monthPrevBtn" onclick="shiftMonth(-1)">‹</button>
+<button class="month-arrow" onclick="shiftMonth(-1)">‹</button>
 <div class="month-label" id="monthLabel"></div>
-<button class="month-arrow" id="monthNextBtn" onclick="shiftMonth(1)">›</button>
+<button class="month-arrow disabled" id="monthNextBtn" onclick="shiftMonth(1)">›</button>
 </div>
 <div class="month-summary">
 <div class="month-net-label">本月盈餘</div>
 <div class="month-net-val" id="monthNet"></div>
 <div class="month-grid">
 <div class="month-grid-item">
-<div class="month-grid-label" style="color:#4ade80">↑ 銷售收入</div>
+<div class="month-grid-label" style="color:#4ade80">↑ 收入</div>
 <div class="month-grid-val" id="monthIncome"></div>
 </div>
 <div class="month-grid-item">
-<div class="month-grid-label" style="color:#f87171">↓ 進貨支出</div>
+<div class="month-grid-label" style="color:#f87171">↓ 進貨</div>
 <div class="month-grid-val" id="monthExpense"></div>
 </div>
 <div class="month-grid-item">
-<div class="month-grid-label" style="color:#fbbf24">◆ 日常費用</div>
+<div class="month-grid-label" style="color:#fbbf24">◆ 費用</div>
 <div class="month-grid-val" id="monthDaily"></div>
 </div>
 </div>
 </div>
 <div class="month-day-list" id="monthDayList"></div>
 </div>
-
-<div id="debugLog">系統啟動中...</div>
 </div>
 </div>
-<div id="toast"></div>
 
 <script>
 // ============================================
-// 📌 API 設定（請換成你自己的 URL）
+// 全局變數
 // ============================================
-const API_URL = "https://script.google.com/macros/s/AKfycby5gZUF-K2QMXq7r5RP2W3onCNp-yCR1nesACY9kjguQFMKkHQsCdLcouDUjpLM01VsMA/exec";
-
+const API_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL'; // 請替換為您的 Google Apps Script 部署 URL
+let records = [];
+let products = {
+  income: [],
+  expense: [],
+  daily: []
+};
+let sharedDateStr;
+let recType = 'income';
+let recMode = 'quick';
+let selectedProduct = null;
+let customPrice = '';
+let qty = 1;
+let newProdType = 'income';
 let isCloudLoaded = false;
 
-// ============================================
-// 🔧 工具函數
-// ============================================
+const CATS = {
+  income: { label: '收入', icon: '↑', color: '#22c55e', bg: '#dcfce7' },
+  expense: { label: '進貨', icon: '↓', color: '#ef4444', bg: '#fee2e2' },
+  daily: { label: '費用', icon: '◆', color: '#f59e0b', bg: '#fef3c7' }
+};
 
+// ============================================
+// 工具函數
+// ============================================
 function log(msg) {
-  const el = document.getElementById('debugLog');
-  if (!el) return;
-  const time = new Date().toLocaleTimeString();
-  el.innerHTML += `<div>[${time}] ${msg}</div>`;
-  el.scrollTop = el.scrollHeight;
+  const debugLog = document.getElementById('debugLog');
+  if (debugLog) {
+    debugLog.innerHTML += `<div>${new Date().toLocaleTimeString()} - ${msg}</div>`;
+    debugLog.scrollTop = debugLog.scrollHeight;
+  }
+  console.log(msg);
 }
 
-const CATS = {
-  income: { label: '銷售收入', color: '#22c55e', bg: '#dcfce7', icon: '↑' },
-  expense: { label: '進貨支出', color: '#ef4444', bg: '#fee2e2', icon: '↓' },
-  daily: { label: '日常費用', color: '#f59e0b', bg: '#fef3c7', icon: '◆' },
-};
-
-let products = {
-  income: [{id:1,name:'A產品'},{id:2,name:'B產品'},{id:3,name:'C產品'},{id:4,name:'D產品'},{id:5,name:'E產品'},{id:6,name:'F產品'}],
-  expense: [{id:7,name:'原物料A'},{id:8,name:'原物料B'},{id:9,name:'包裝材料'},{id:10,name:'運費'}],
-  daily: [{id:11,name:'水電費'},{id:12,name:'租金'},{id:13,name:'薪資'},{id:14,name:'雜支'}],
-};
-let records = [];
-let recType = 'income', recMode = 'quick', selectedProduct = null;
-let sharedDateStr = '', newProdType = 'income', qty = 1, customPrice = '';
-let monthStr = '';
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.style.display = 'block';
+  setTimeout(() => {
+    toast.style.display = 'none';
+  }, 2000);
+}
 
 function todayISO() {
   const d = new Date();
-  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
 }
 
-function pad(n) { 
-  return String(n).padStart(2,'0'); 
+function pad(num) {
+  return num < 10 ? '0' + num : num;
+}
+
+function formatMoney(amount) {
+  return `NT$${Math.abs(amount).toLocaleString()}`;
 }
 
 function normalizeDate(dateStr) {
   if (!dateStr) return '';
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
-  } catch (e) {
-    return dateStr;
-  }
+  const d = new Date(dateStr);
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
 }
 
-function isoToDisplay(iso) {
-  const [y,m,d] = iso.split('-');
-  return `${y}/${parseInt(m)}/${parseInt(d)}`;
+function isoToDisplay(isoDate) {
+  if (!isoDate) return '';
+  const [y, m, d] = isoDate.split('-');
+  return `${y}/${m}/${d}`;
 }
 
-function displayToYearMonth(display) {
-  const parts = display.split('/');
-  return parts[0] + '-' + pad(parseInt(parts[1]));
-}
-
-function formatMoney(n) { 
-  return 'NT$' + Number(n).toLocaleString('zh-TW'); 
-}
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; 
-  t.style.display = 'block';
-  setTimeout(() => t.style.display = 'none', 2000);
+function displayToYearMonth(displayDate) {
+  if (!displayDate) return '';
+  const [y, m] = displayDate.split('/');
+  return `${y}-${m}`;
 }
 
 function setSyncStatus(status, text) {
   const el = document.getElementById('syncStatus');
-  if (!el) return;
-  el.className = 'status-' + status;
+  el.className = `status-${status}`;
   el.textContent = text;
 }
 
@@ -433,9 +435,11 @@ async function uploadToCloud(force = false) {
     const formData = new URLSearchParams();
     formData.append('json', JSON.stringify(payload));
     
+    // 為了確保品項同步，這裡需要確保 API_URL 是正確的
+    // 並且 Google Apps Script 的 doPost 能夠正確處理 products 數據
     await fetch(API_URL, { 
       method: "POST", 
-      mode: "no-cors", 
+      mode: "no-cors", // 跨域請求，通常用於 JSONP 或簡單 POST
       body: formData 
     });
     
@@ -468,6 +472,7 @@ function loadFromCloud() {
       if (cloudData && cloudData.products) {
         log("📦 收到品項數據: " + JSON.stringify(cloudData.products).substring(0, 100));
         
+        // 【修正】這裡直接替換本地 products，確保與雲端一致
         products = {
           income: cloudData.products.income || [],
           expense: cloudData.products.expense || [],
@@ -903,13 +908,13 @@ function renderMonthly() {
     const wd = weekdays[new Date(parseInt(dy),parseInt(dm)-1,parseInt(dd)).getDay()];
     return `<div class="month-day-item" onclick="goToDay('${date}')">
 <div class="month-day-header">
-<div class="month-day-date">${dm}/${dd} <span style="color:#94a3b8;font-size:12px;font-weight:500">（${wd}）</span></div>
+<div class="month-day-date">${parseInt(dm)}/${parseInt(dd)} (${wd})</div>
 <div class="month-day-net" style="color:${net>=0?'#16a34a':'#ef4444'}">${net>=0?'+':''}${formatMoney(net)}</div>
 </div>
 <div class="month-day-bar">
-${inc>0?`<span class="month-day-bar-item" style="color:#22c55e">↑${formatMoney(inc)}</span>`:''}
-${exp>0?`<span class="month-day-bar-item" style="color:#ef4444">↓${formatMoney(exp)}</span>`:''}
-${dal>0?`<span class="month-day-bar-item" style="color:#f59e0b">◆${formatMoney(dal)}</span>`:''}
+${inc>0?`<span class="month-day-bar-item income">↑${formatMoney(inc)}</span>`:''}
+${exp>0?`<span class="month-day-bar-item expense">↓${formatMoney(exp)}</span>`:''}
+${dal>0?`<span class="month-day-bar-item daily">◆${formatMoney(dal)}</span>`:''}
 <span class="month-day-bar-item" style="margin-left:auto">${recs.length} 筆</span>
 </div>
 </div>`;
