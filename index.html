@@ -463,32 +463,47 @@ function mergeRecords(local, cloud) {
 // ☁️ 雲端同步
 // ============================================
 
-async function uploadToCloud(force = false) {
+function uploadToCloud(force = false) {
   if (!isCloudLoaded && !force) {
     log('⚠️ 雲端未完全載入，跳過上傳');
     return;
   }
-  try {
-    setSyncStatus('syncing', '正在上傳...');
-    const payload = { 
-      records: records, 
-      products: products 
-    };
-    const formData = new URLSearchParams();
-    formData.append('json', JSON.stringify(payload));
-    
-    await fetch(API_URL, { 
-      method: "POST", 
-      mode: "no-cors", 
-      body: formData 
-    });
-    
-    setSyncStatus('success', '已同步');
-    log('✓ 上傳成功：' + records.length + ' 筆帳目, ' + Object.values(products).flat().length + ' 個品項');
-  } catch (e) {
+
+  setSyncStatus('syncing', '正在上傳...');
+
+  const payload = { records: records, products: products };
+  const jsonStr = JSON.stringify(payload);
+  const callbackName = 'upload_cb_' + Math.floor(Math.random() * 1000000);
+
+  window[callbackName] = function(res) {
+    delete window[callbackName];
+    const s = document.getElementById(callbackName);
+    if (s) s.remove();
+    if (res && res.ok) {
+      setSyncStatus('success', '已同步');
+      log('✓ 上傳成功：' + records.length + ' 筆帳目, ' + Object.values(products).flat().length + ' 個品項');
+    } else {
+      setSyncStatus('error', '上傳失敗');
+      log('✗ 上傳回傳異常：' + JSON.stringify(res));
+    }
+  };
+
+  const url = API_URL
+    + '?action=save'
+    + '&callback=' + callbackName
+    + '&json=' + encodeURIComponent(jsonStr)
+    + '&t=' + Date.now();
+
+  const script = document.createElement('script');
+  script.id = callbackName;
+  script.onerror = function() {
+    delete window[callbackName];
+    script.remove();
     setSyncStatus('error', '上傳失敗');
-    log('✗ 上傳失敗：' + e.toString());
-  }
+    log('✗ 上傳 script 載入失敗');
+  };
+  script.src = url;
+  document.body.appendChild(script);
 }
 
 function loadFromCloud() {
