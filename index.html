@@ -143,20 +143,10 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 .prod-section { margin-bottom: 16px; }
 .prod-section-title { font-weight: 800; font-size: 13px; margin-bottom: 8px; }
 .prod-list { display: flex; flex-direction: column; gap: 6px; }
-.prod-item { background: #fff; border-radius: 12px; padding: 10px 14px; display: flex; align-items: center; box-shadow: 0 1px 4px rgba(0,0,0,0.05); gap: 8px; }
+.prod-item { background: #fff; border-radius: 12px; padding: 10px 14px; display: flex; align-items: center; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
 .prod-item-name { flex: 1; font-weight: 700; font-size: 14px; color: #1e293b; }
-.prod-item-hint { color: #cbd5e1; font-size: 12px; margin-right: 4px; }
+.prod-item-hint { color: #cbd5e1; font-size: 12px; margin-right: 12px; }
 .prod-del-btn { color: #cbd5e1; background: none; border: none; cursor: pointer; font-size: 14px; font-family: inherit; }
-.prod-edit-btn { color: #94a3b8; background: none; border: none; cursor: pointer; font-size: 13px; font-family: inherit; padding: 2px 6px; border-radius: 6px; }
-.prod-edit-btn:hover { background: #f1f5f9; color: #0f172a; }
-.prod-item-price { color: #64748b; font-size: 12px; font-weight: 600; min-width: 48px; text-align: right; }
-/* 編輯模式 */
-.prod-item.editing { background: #f8fafc; border: 1.5px solid #cbd5e1; padding: 8px 10px; flex-wrap: wrap; gap: 6px; }
-.prod-edit-name { flex: 1; min-width: 80px; padding: 6px 8px; border-radius: 8px; border: 1.5px solid #e2e8f0; font-size: 14px; font-weight: 700; font-family: inherit; color: #1e293b; }
-.prod-edit-price { width: 80px; padding: 6px 8px; border-radius: 8px; border: 1.5px solid #e2e8f0; font-size: 14px; font-family: inherit; color: #1e293b; text-align: right; }
-.prod-edit-actions { display: flex; gap: 6px; width: 100%; }
-.prod-save-btn { flex: 1; padding: 7px 0; border-radius: 8px; border: none; background: #0f172a; color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
-.prod-cancel-btn { padding: 7px 14px; border-radius: 8px; border: 1.5px solid #e2e8f0; background: #fff; color: #64748b; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
 
 .month-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; background: #fff; border-radius: 12px; padding: 10px 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
 .month-arrow { background: #f1f5f9; border: none; border-radius: 8px; width: 32px; height: 32px; font-size: 16px; cursor: pointer; color: #374151; font-family: inherit; }
@@ -307,13 +297,7 @@ body { font-family: 'Noto Sans TC', sans-serif; background: #f8fafc; min-height:
 <button class="prod-type-btn" onclick="setProdType('expense')">進貨</button>
 <button class="prod-type-btn" onclick="setProdType('daily')">費用</button>
 </div>
-<input type="text" class="text-input" id="newProdName" placeholder="輸入品項名稱" style="margin-bottom:8px" />
-<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
-  <div style="flex:1">
-    <div class="field-label">預設金額（選填）</div>
-    <input type="number" class="text-input" id="newProdPrice" placeholder="例如：200" inputmode="numeric" />
-  </div>
-</div>
+<input type="text" class="text-input" id="newProdName" placeholder="輸入品項名稱" style="margin-bottom:10px" />
 <button class="prod-add-btn" onclick="addProduct()">新增</button>
 </div>
 <div id="productSections"></div>
@@ -659,9 +643,7 @@ function renderProductGrid() {
     if (!p || !p.name) return;
     const btn = document.createElement('button');
     btn.className = selectedProduct && selectedProduct.id===p.id ? `product-btn selected-${recType}` : 'product-btn';
-    btn.innerHTML = p.defaultPrice != null 
-      ? `${p.name}<br><span style="font-size:11px;font-weight:600;opacity:0.7">NT$${p.defaultPrice.toLocaleString()}</span>`
-      : p.name;
+    btn.textContent = p.name;
     btn.onclick = () => selectProduct(p);
     grid.appendChild(btn);
   });
@@ -669,7 +651,7 @@ function renderProductGrid() {
 
 function selectProduct(p) { 
   selectedProduct=p; 
-  customPrice = p.defaultPrice != null ? String(p.defaultPrice) : '';
+  customPrice=''; 
   qty=1; 
   renderProductGrid(); 
   renderPriceCard(); 
@@ -974,19 +956,14 @@ function setProdType(type) {
 
 function addProduct() {
   const name = document.getElementById('newProdName').value.trim();
-  const priceVal = document.getElementById('newProdPrice').value.trim();
   if (!name) return showToast('請填品名');
-  
-  const defaultPrice = priceVal ? parseFloat(priceVal) : null;
   
   products[newProdType].push({ 
     id: Date.now(), 
-    name,
-    defaultPrice
+    name 
   });
   
   document.getElementById('newProdName').value = '';
-  document.getElementById('newProdPrice').value = '';
   renderProductSections(); 
   renderProductGrid();
   
@@ -1010,69 +987,15 @@ function deleteProduct(type, id) {
   showToast('✓ 已刪除品項');
 }
 
-function editProduct(type, id) {
-  // 取消其他編輯中的品項
-  document.querySelectorAll('.prod-item.editing').forEach(el => {
-    const pid = parseInt(el.dataset.id);
-    const ptype = el.dataset.type;
-    cancelEdit(ptype, pid);
-  });
-  
-  const item = document.querySelector(`.prod-item[data-id="${id}"]`);
-  if (!item) return;
-  const prod = products[type].find(p => p.id === id);
-  if (!prod) return;
-  
-  const cat = CATS[type];
-  item.classList.add('editing');
-  item.innerHTML = `
-    <input class="prod-edit-name" id="editName_${id}" type="text" value="${prod.name}" placeholder="品項名稱" />
-    <input class="prod-edit-price prod-edit-price-${type}" id="editPrice_${id}" type="number" value="${prod.defaultPrice ?? ''}" placeholder="金額" inputmode="numeric" style="border-color:${cat.color}" />
-    <div class="prod-edit-actions">
-      <button class="prod-save-btn" onclick="saveProduct('${type}',${id})" style="background:${cat.color}">儲存</button>
-      <button class="prod-cancel-btn" onclick="cancelEdit('${type}',${id})">取消</button>
-      <button class="prod-cancel-btn" onclick="deleteProduct('${type}',${id})" style="color:#ef4444;border-color:#fca5a5">刪除</button>
-    </div>`;
-  item.querySelector(`#editName_${id}`).focus();
-}
-
-function cancelEdit(type, id) {
-  renderProductSections();
-}
-
-function saveProduct(type, id) {
-  const nameEl = document.getElementById(`editName_${id}`);
-  const priceEl = document.getElementById(`editPrice_${id}`);
-  if (!nameEl) return;
-  
-  const newName = nameEl.value.trim();
-  if (!newName) return showToast('請填品名');
-  
-  const newPrice = priceEl && priceEl.value.trim() ? parseFloat(priceEl.value) : null;
-  
-  const prod = products[type].find(p => p.id === id);
-  if (prod) {
-    prod.name = newName;
-    prod.defaultPrice = newPrice;
-  }
-  
-  renderProductSections();
-  renderProductGrid();
-  localStorage.setItem('bk_products', JSON.stringify(products));
-  uploadToCloud(true);
-  showToast('✓ 已儲存');
-}
-
 function renderProductSections() {
   document.getElementById('productSections').innerHTML = Object.entries(CATS).map(([type, cat]) => `
 <div class="prod-section">
 <div class="prod-section-title" style="color:${cat.color}">${cat.icon} ${cat.label}</div>
 <div class="prod-list">
 ${products[type].map(p=>`
-<div class="prod-item" data-id="${p.id}" data-type="${type}">
+<div class="prod-item">
 <span class="prod-item-name">${p.name}</span>
-<span class="prod-item-price">${p.defaultPrice != null ? 'NT$' + p.defaultPrice.toLocaleString() : '<span style="color:#e2e8f0">—</span>'}</span>
-<button class="prod-edit-btn" onclick="editProduct('${type}',${p.id})">✎</button>
+<span class="prod-item-hint">價格每次輸入</span>
 <button class="prod-del-btn" onclick="deleteProduct('${type}',${p.id})">✕</button>
 </div>`).join('')}
 </div>
